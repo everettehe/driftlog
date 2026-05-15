@@ -1,0 +1,20 @@
+# driftlog configuration file
+# Place this file in your working directory or pass it via --config.
+
+# Path to the Terraform state file to compare against.
+state_file: terraform.tfstate
+
+# AWS region to query live resources from.
+region: us-east-1
+
+# Optional: named AWS profile from ~/.aws/credentials.
+# profile: my-profile
+
+# Output format: "text" (default) or "json".
+output_format: text
+
+# Resource types to include in the drift check.
+# Supported values: aws_instance, aws_s3_bucket
+resources:
+  - aws_instance
+  - aws_s3_bucket
