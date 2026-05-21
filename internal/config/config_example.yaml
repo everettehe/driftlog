@@ -3,22 +3,30 @@
 # Path to the Terraform state file
 state_path: terraform.tfstate
 
-# Output format: text | json
-output_format: text
-
 # AWS region to query
 region: us-east-1
 
-# Limit comparison to specific resource types (empty = all)
-resource_types:
-  - aws_instance
-  - aws_s3_bucket
+# Output format: text | json
+output_format: text
 
-# Only report resources that have drifted
-only_drifted: false
+# How long to cache cloud API results (e.g. 5m, 1h)
+cache_ttl: 5m
 
-# Local cache settings
-cache:
-  enabled: true
-  path: .driftlog-cache.json
-  ttl: 5m
+# Optional recurring schedule (e.g. 1h, daily)
+schedule: ""
+
+# Filtering options
+filter:
+  only_drift: false
+  types: []
+    # - aws_instance
+    # - aws_s3_bucket
+
+# Notification settings
+notify:
+  # Destination channel: webhook | slack
+  channel: webhook
+  # URL to POST drift results to
+  webhook_url: ""
+  # Only notify when drift is detected
+  only_drift: true
