@@ -1,20 +1,24 @@
-# driftlog configuration file
-# Place this file in your working directory or pass it via --config.
+# driftlog configuration example
 
-# Path to the Terraform state file to compare against.
-state_file: terraform.tfstate
+# Path to the Terraform state file
+state_path: terraform.tfstate
 
-# AWS region to query live resources from.
-region: us-east-1
-
-# Optional: named AWS profile from ~/.aws/credentials.
-# profile: my-profile
-
-# Output format: "text" (default) or "json".
+# Output format: text | json
 output_format: text
 
-# Resource types to include in the drift check.
-# Supported values: aws_instance, aws_s3_bucket
-resources:
+# AWS region to query
+region: us-east-1
+
+# Limit comparison to specific resource types (empty = all)
+resource_types:
   - aws_instance
   - aws_s3_bucket
+
+# Only report resources that have drifted
+only_drifted: false
+
+# Local cache settings
+cache:
+  enabled: true
+  path: .driftlog-cache.json
+  ttl: 5m

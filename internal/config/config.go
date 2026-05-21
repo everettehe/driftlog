@@ -2,49 +2,40 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// OutputFormat represents the report output format.
-type OutputFormat string
-
-const (
-	OutputText OutputFormat = "text"
-	OutputJSON OutputFormat = "json"
-)
-
 // Config holds all driftlog runtime configuration.
 type Config struct {
-	StateFile    string       `yaml:"state_file"`
-	OutputFormat OutputFormat `yaml:"output_format"`
-	AWS          AWSConfig    `yaml:"aws"`
-	Filter       FilterConfig `yaml:"filter"`
+	StatePath    string        `yaml:"state_path"`
+	OutputFormat string        `yaml:"output_format"`
+	Region       string        `yaml:"region"`
+	ResourceTypes []string     `yaml:"resource_types"`
+	OnlyDrifted  bool          `yaml:"only_drifted"`
+	Cache        CacheConfig   `yaml:"cache"`
 }
 
-// AWSConfig holds AWS-specific settings.
-type AWSConfig struct {
-	Region  string   `yaml:"region"`
-	Profile string   `yaml:"profile"`
-	Services []string `yaml:"services"`
-}
-
-// FilterConfig maps directly to filter.Options fields for YAML loading.
-type FilterConfig struct {
-	OnlyDrifted   bool     `yaml:"only_drifted"`
-	ResourceTypes []string `yaml:"resource_types"`
-	ExcludeIDs    []string `yaml:"exclude_ids"`
+// CacheConfig controls the optional local resource cache.
+type CacheConfig struct {
+	Enabled bool          `yaml:"enabled"`
+	Path    string        `yaml:"path"`
+	TTL     time.Duration `yaml:"ttl"`
 }
 
 // Default returns a Config populated with sensible defaults.
 func Default() Config {
 	return Config{
-		StateFile:    "terraform.tfstate",
-		OutputFormat: OutputText,
-		AWS: AWSConfig{
-			Region:   "us-east-1",
-			Services: []string{"ec2", "s3"},
+		StatePath:    "terraform.tfstate",
+		OutputFormat: "text",
+		Region:       "us-east-1",
+		Cache: CacheConfig{
+			Enabled: false,
+			Path:    ".driftlog-cache.json",
+			TTL:     5 * time.Minute,
 		},
 	}
 }
@@ -53,22 +44,19 @@ func Default() Config {
 // If the file does not exist the defaults are returned without error.
 func LoadFile(path string) (Config, error) {
 	cfg := Default()
-
 	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return cfg, nil
+	}
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
-		}
-		return cfg, err
+		return cfg, fmt.Errorf("config: read file: %w", err)
 	}
-
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, err
+		return cfg, fmt.Errorf("config: parse yaml: %w", err)
 	}
-
-	if cfg.OutputFormat != OutputText && cfg.OutputFormat != OutputJSON {
-		return cfg, errors.New("invalid output_format: must be \"text\" or \"json\"")
+	valid := map[string]bool{"text": true, "json": true}
+	if !valid[cfg.OutputFormat] {
+		return cfg, fmt.Errorf("config: invalid output_format %q (must be text or json)", cfg.OutputFormat)
 	}
-
 	return cfg, nil
 }
