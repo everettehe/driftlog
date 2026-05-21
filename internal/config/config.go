@@ -7,63 +7,68 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds all runtime configuration for driftlog.
+// OutputFormat represents the report output format.
+type OutputFormat string
+
+const (
+	OutputText OutputFormat = "text"
+	OutputJSON OutputFormat = "json"
+)
+
+// Config holds all driftlog runtime configuration.
 type Config struct {
-	StateFile  string   `yaml:"state_file"`
-	Region     string   `yaml:"region"`
-	Profile    string   `yaml:"profile"`
-	OutputFmt  string   `yaml:"output_format"`
-	Resources  []string `yaml:"resources"`
+	StateFile    string       `yaml:"state_file"`
+	OutputFormat OutputFormat `yaml:"output_format"`
+	AWS          AWSConfig    `yaml:"aws"`
+	Filter       FilterConfig `yaml:"filter"`
+}
+
+// AWSConfig holds AWS-specific settings.
+type AWSConfig struct {
+	Region  string   `yaml:"region"`
+	Profile string   `yaml:"profile"`
+	Services []string `yaml:"services"`
+}
+
+// FilterConfig maps directly to filter.Options fields for YAML loading.
+type FilterConfig struct {
+	OnlyDrifted   bool     `yaml:"only_drifted"`
+	ResourceTypes []string `yaml:"resource_types"`
+	ExcludeIDs    []string `yaml:"exclude_ids"`
 }
 
 // Default returns a Config populated with sensible defaults.
-func Default() *Config {
-	return &Config{
-		StateFile: "terraform.tfstate",
-		Region:    "us-east-1",
-		OutputFmt: "text",
-		Resources: []string{"aws_instance", "aws_s3_bucket"},
+func Default() Config {
+	return Config{
+		StateFile:    "terraform.tfstate",
+		OutputFormat: OutputText,
+		AWS: AWSConfig{
+			Region:   "us-east-1",
+			Services: []string{"ec2", "s3"},
+		},
 	}
 }
 
-// LoadFile reads a YAML config file from the given path and merges it
-// over the default configuration.
-func LoadFile(path string) (*Config, error) {
+// LoadFile reads a YAML config file and merges it over the defaults.
+// If the file does not exist the defaults are returned without error.
+func LoadFile(path string) (Config, error) {
 	cfg := Default()
 
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return cfg, nil
 		}
-		return nil, err
-	}
-	defer f.Close()
-
-	if err := yaml.NewDecoder(f).Decode(cfg); err != nil {
-		return nil, err
+		return cfg, err
 	}
 
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return cfg, err
+	}
+
+	if cfg.OutputFormat != OutputText && cfg.OutputFormat != OutputJSON {
+		return cfg, errors.New("invalid output_format: must be \"text\" or \"json\"")
 	}
 
 	return cfg, nil
-}
-
-// Validate checks that required fields contain acceptable values.
-func (c *Config) Validate() error {
-	if c.StateFile == "" {
-		return errors.New("config: state_file must not be empty")
-	}
-	if c.Region == "" {
-		return errors.New("config: region must not be empty")
-	}
-	switch c.OutputFmt {
-	case "text", "json":
-		// valid
-	default:
-		return errors.New("config: output_format must be \"text\" or \"json\"")
-	}
-	return nil
 }
