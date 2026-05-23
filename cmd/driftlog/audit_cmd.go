@@ -9,6 +9,8 @@ import (
 )
 
 // runAudit prints the audit log found at the given path in a human-readable table.
+// Each row shows a summary of a single drift-detection run, including counts of
+// drifted, clean, missing, and unmanaged resources.
 func runAudit(path string) error {
 	entries, err := audit.ReadAll(path)
 	if err != nil {
@@ -33,5 +35,9 @@ func runAudit(path string) error {
 			e.UnmanagedCount,
 		)
 	}
-	return w.Flush()
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("audit: flushing output: %w", err)
+	}
+	fmt.Printf("\n%d run(s) listed.\n", len(entries))
+	return nil
 }
